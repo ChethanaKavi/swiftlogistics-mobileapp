@@ -1,3 +1,5 @@
+# Firebase Admin secret key
+backend/serviceAccountKey.json
 # Ignore environment files containing secrets
 .env
 .env.*

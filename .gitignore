@@ -49,3 +49,5 @@ coverage/
 
 # Ignore production build output
 .next/
+
+.serviceAccountKey.json

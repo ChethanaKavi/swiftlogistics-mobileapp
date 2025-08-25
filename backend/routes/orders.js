@@ -3,7 +3,22 @@ const express = require('express');
 const router = express.Router();
 const { db, bucket } = require('../firebaseAdmin');
 const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage() });
+const path = require('path');
+const fs = require('fs');
+const uploadDir = path.join(__dirname, '../img');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueName = `${req.params.id}_${Date.now()}_${file.originalname}`;
+    cb(null, uniqueName);
+  }
+});
+const upload = multer({ storage });
 const admin = require('firebase-admin');
 
 // Get all orders
@@ -49,27 +64,18 @@ router.post('/:id/proof', upload.single('proof'), async (req, res) => {
       return res.status(400).json({ message: 'Driver info required' });
     }
 
-    // Upload file to Firebase Storage
-    const fileName = `proofs/${orderId}_${Date.now()}_${req.file.originalname}`;
-    const file = bucket.file(fileName);
-    await file.save(req.file.buffer, {
-      metadata: { contentType: req.file.mimetype },
-    });
-    // Get public URL
-    await file.makePublic();
-    const proofUrl = file.publicUrl();
-
-    // Update order in Firestore
+    // Save file path to Firestore (relative path)
+    const relativePath = `img/${req.file.filename}`;
     const deliveredAt = admin.firestore.Timestamp.now();
     await db.collection('orders').doc(orderId).update({
       status: 'delivered',
       driverId,
       driverName,
       deliveredAt,
-      proofUrl,
+      proofUrl: relativePath,
     });
-    console.log('Order updated:', orderId, { driverId, driverName, deliveredAt, proofUrl });
-    res.json({ message: 'Proof uploaded and order updated', proofUrl });
+    console.log('Order updated:', orderId, { driverId, driverName, deliveredAt, proofUrl: relativePath });
+    res.json({ message: 'Proof uploaded and order updated', proofUrl: relativePath });
   } catch (error) {
     console.error('Error in proof upload:', error);
     res.status(500).json({ message: error.message });

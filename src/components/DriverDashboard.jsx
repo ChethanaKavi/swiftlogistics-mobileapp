@@ -128,11 +128,11 @@ const DriverDashboard = () => {
     fetchOrders();
   };
 
-  // Calculate stats
+  // Calculate stats (case-insensitive for status)
   const totalPackages = orders.length;
-  const pending = orders.filter(o => o.status === 'PENDING').length;
-  const delivered = orders.filter(o => o.status === 'DELIVERED').length;
-  const failed = orders.filter(o => o.status === 'FAILED').length;
+  const pending = orders.filter(o => (o.status || '').toLowerCase() === 'pending').length;
+  const delivered = orders.filter(o => (o.status || '').toLowerCase() === 'delivered').length;
+  const failed = orders.filter(o => (o.status || '').toLowerCase() === 'failed').length;
 
   return (
     <ScrollView style={styles.container}>
@@ -182,7 +182,7 @@ const DriverDashboard = () => {
                 <Text style={styles.packageName}>No items in cart</Text>
               )}
               <View style={styles.actionButtonsBox}>
-                <TouchableOpacity style={styles.deliverBtn}><Text style={styles.btnText}>✔ Deliver</Text></TouchableOpacity>
+                {/* <TouchableOpacity style={styles.deliverBtn}><Text style={styles.btnText}>✔ Deliver</Text></TouchableOpacity> */}
                 <TouchableOpacity style={styles.failBtn}><Text style={styles.btnText}>✖ Fail</Text></TouchableOpacity>
               </View>
             </View>

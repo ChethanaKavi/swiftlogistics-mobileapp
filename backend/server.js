@@ -14,12 +14,15 @@ const SECRET = 'your_jwt_secret';
 
 // Registration endpoint
 app.post('/api/register', async (req, res) => {
-  const { email, password } = req.body;
+  const { fullName, email, password } = req.body;
+  if (!fullName || !email || !password) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
   if (users.find(u => u.email === email)) {
     return res.status(400).json({ message: 'User already exists' });
   }
   const hashedPassword = await bcrypt.hash(password, 10);
-  users.push({ email, password: hashedPassword });
+  users.push({ fullName, email, password: hashedPassword });
   res.json({ message: 'Registration successful' });
 });
 
@@ -34,4 +37,4 @@ app.post('/api/login', async (req, res) => {
   res.json({ token });
 });
 
-app.listen(3001, () => console.log('Backend running on http://localhost:3001'));
+app.listen(3001, () => console.log('Backend running on http://10.22.160.39:3001'));

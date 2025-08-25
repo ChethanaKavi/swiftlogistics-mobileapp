@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
 
-const API_URL = 'http://localhost:3001/api'; // Change to your backend URL if needed
+const API_URL = 'http://10.22.160.39:3001/api'; // Change to your backend URL if needed
 
 export function LoginForm({ onLogin, onShowRegister }) {
   const [email, setEmail] = useState('');

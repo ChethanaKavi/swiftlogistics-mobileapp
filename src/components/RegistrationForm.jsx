@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 
@@ -10,6 +8,31 @@ export default function RegistrationForm({ onSignIn }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [accountType, setAccountType] = useState('Client');
   const [agree, setAgree] = useState(false);
+
+  // Backend connection: handle registration
+  const handleRegister = async () => {
+    // You may want to add validation here
+    try {
+      const response = await fetch('http://10.22.160.39:3001/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName,
+          email,
+          password,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert('Registration successful!');
+        if (onSignIn) onSignIn();
+      } else {
+        alert(data.message || 'Registration failed.');
+      }
+    } catch (error) {
+      alert('Error connecting to backend.');
+    }
+  };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -78,52 +101,14 @@ export default function RegistrationForm({ onSignIn }) {
             </View>
           </View>
 
-          {/* Account Type */}
-          <Text style={styles.inputLabel}>Account Type</Text>
-          <View style={styles.accountTypeRow}>
-            <TouchableOpacity
-              style={[styles.accountTypeBtn, accountType === 'Client' && styles.accountTypeBtnActive]}
-              onPress={() => setAccountType('Client')}
-            >
-              <Text style={[styles.accountTypeIcon, accountType === 'Client' && styles.accountTypeIconActive]}>👤</Text>
-              <View>
-                <Text style={[styles.accountTypeText, accountType === 'Client' && styles.accountTypeTextActive]}>Client</Text>
-                <Text style={styles.accountTypeSub}>Process Order</Text>
-              </View>
-              {accountType === 'Client' && <Text style={styles.accountTypeCheck}>✔️</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.accountTypeBtn, accountType === 'Driver' && styles.accountTypeBtnActive]}
-              onPress={() => setAccountType('Driver')}
-            >
-              <Text style={[styles.accountTypeIcon, accountType === 'Driver' && styles.accountTypeIconActive]}>💜</Text>
-              <View>
-                <Text style={[styles.accountTypeText, accountType === 'Driver' && styles.accountTypeTextActive]}>Driver</Text>
-                <Text style={styles.accountTypeSub}>Take Orders</Text>
-              </View>
-              {accountType === 'Driver' && <Text style={styles.accountTypeCheck}>✔️</Text>}
-            </TouchableOpacity>
-          </View>
-
-          {/* Terms Checkbox */}
-          <View style={styles.termsRow}>
-            <TouchableOpacity onPress={() => setAgree(!agree)} style={styles.checkboxBox}>
-              <View style={[styles.checkbox, agree && styles.checkboxChecked]}>{agree && <Text style={styles.checkboxTick}>✔️</Text>}</View>
-            </TouchableOpacity>
-            <Text style={styles.termsText}>
-              I agree to the <Text style={styles.link}>Terms of Service</Text> and <Text style={styles.link}>Privacy Policy</Text>
-            </Text>
-          </View>
-
-          {/* Create Account Button */}
-          <TouchableOpacity style={[styles.createBtn, !(agree && fullName && email && password && confirmPassword && password === confirmPassword) && styles.createBtnDisabled]} disabled={!(agree && fullName && email && password && confirmPassword && password === confirmPassword)}>
-            <Text style={styles.createBtnText}>Create Account</Text>
+          {/* Register Button */}
+          <TouchableOpacity style={styles.signInBtn} onPress={handleRegister}>
+            <Text style={styles.signInBtnText}>Register →</Text>
           </TouchableOpacity>
-
           {/* Sign In Link */}
-          <Text style={styles.signInText}>
+          <Text style={styles.createAccountText}>
             Already have an account?{' '}
-            <Text style={styles.signInLink} onPress={onSignIn}>Sign in</Text>
+            <Text style={styles.createAccountLink} onPress={onSignIn}>Sign in</Text>
           </Text>
         </View>
       </ScrollView>

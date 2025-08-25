@@ -5,8 +5,11 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+
 // Auth routes using Firebase
 app.use('/api', require('./routes/auth'));
+// Orders routes
+app.use('/api/orders', require('./routes/orders'));
 
 app.get('/', (req, res) => res.send('MobileApp backend is running.'));
 

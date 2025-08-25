@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Pressable, Button, Platform } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 
 const getCurrentTime = () => {
   const now = new Date();
@@ -8,10 +9,49 @@ const getCurrentTime = () => {
 
 const DriverDashboard = () => {
   const [lastUpdated, setLastUpdated] = useState(getCurrentTime());
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [proofDoc, setProofDoc] = useState(null);
+  // Handle proof document upload
+  const handlePickProof = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+      if (result.type === 'success') {
+        setProofDoc(result);
+      }
+    } catch (e) {
+      // handle error
+    }
+  };
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('http://10.22.160.39:3001/api/orders');
+      const data = await res.json();
+      setOrders(data);
+    } catch (e) {
+      setOrders([]);
+    }
+    setLastUpdated(getCurrentTime());
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
   const handleRefresh = () => {
-    setLastUpdated(getCurrentTime());
+    fetchOrders();
   };
+
+  // Calculate stats
+  const totalPackages = orders.length;
+  const pending = orders.filter(o => o.status === 'PENDING').length;
+  const delivered = orders.filter(o => o.status === 'DELIVERED').length;
+  const failed = orders.filter(o => o.status === 'FAILED').length;
 
   return (
     <ScrollView style={styles.container}>
@@ -19,10 +59,10 @@ const DriverDashboard = () => {
       <Text style={styles.subHeader}>Manage deliveries and track your route in real-time</Text>
       <Text style={styles.lastUpdated}>Last updated: {lastUpdated}</Text>
       <View style={styles.statsRow}>
-        <StatCard label="Total Packages" value="1" icon="📦" />
-        <StatCard label="Pending" value="1" icon="⏰" />
-        <StatCard label="Delivered" value="0" icon="✅" />
-        <StatCard label="Failed" value="0" icon="❌" />
+        <StatCard label="Total Packages" value={totalPackages} icon="📦" />
+        <StatCard label="Pending" value={pending} icon="⏰" />
+        <StatCard label="Delivered" value={delivered} icon="✅" />
+        <StatCard label="Failed" value={failed} icon="❌" />
       </View>
       <View style={styles.routeBox}>
         <View style={styles.routeHeaderRow}>
@@ -30,7 +70,7 @@ const DriverDashboard = () => {
           <TouchableOpacity onPress={handleRefresh}><Text style={styles.refresh}>Refresh</Text></TouchableOpacity>
           <Text style={styles.assigned}>ASSIGNED</Text>
         </View>
-        <Text style={styles.routeDesc}>Optimized delivery route with 1 stops</Text>
+        <Text style={styles.routeDesc}>Optimized delivery route with {totalPackages} stops</Text>
         <View style={styles.tabRow}>
           <Text style={[styles.tab, styles.tabActive]}>Delivery Manifest</Text>
           <Text style={styles.tab}>Route Map</Text>
@@ -38,25 +78,81 @@ const DriverDashboard = () => {
         </View>
         <View style={styles.manifestBox}>
           <Text style={styles.manifestTitle}>Delivery Manifest</Text>
-          <Text style={styles.manifestDesc}>No Order found</Text>
-          {/* <Text style={styles.pendingCount}>1 Pending</Text> */}
+          <Text style={styles.manifestDesc}>{loading ? 'Loading...' : (orders.length === 0 ? 'No Order found' : `${orders.length} Orders`)}</Text>
         </View>
         <Text style={styles.pendingTitle}>Pending Deliveries</Text>
-        <View style={styles.deliveryCard}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={styles.packageIcon}>📦</Text>
-            <View style={styles.deliveryInfo}>
-              <Text style={styles.packageName}>Laptop Sleeve</Text>
-              <Text style={styles.packageId}>ID: PKG-xmuewOar</Text>
-              <Text style={styles.packageAddress}>No, 34, Kandy Road, Kany</Text>
-              <Text style={styles.packageStatus}>⏳ WAITING</Text>
+        {orders.filter(o => o.status === 'PENDING').map(order => (
+          <TouchableOpacity key={order.id} onPress={() => { setSelectedOrder(order); setModalVisible(true); }}>
+            <View style={styles.deliveryCard}>
+              <Text style={styles.packageId}>Order ID: {order.id}</Text>
+              <Text style={styles.packageAddress}>{order.address ? `${order.address.line1}, ${order.address.city}` : ''}</Text>
+              {Array.isArray(order.cart) && order.cart.length > 0 ? (
+                order.cart.map((item, idx) => (
+                  <View key={item.id || idx} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                    <Text style={styles.packageIcon}>📦</Text>
+                    <View style={styles.deliveryInfo}>
+                      <Text style={styles.packageName}>{item.name}</Text>
+                      <Text style={styles.packageId}>Item ID: {item.id}</Text>
+                      <Text style={styles.packageAddress}>Price: {item.price} | Qty: {item.quantity}</Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.packageName}>No items in cart</Text>
+              )}
+              <View style={styles.actionButtonsBox}>
+                <TouchableOpacity style={styles.deliverBtn}><Text style={styles.btnText}>✔ Deliver</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.failBtn}><Text style={styles.btnText}>✖ Fail</Text></TouchableOpacity>
+              </View>
             </View>
-          </View>
-          <View style={styles.actionButtonsBox}>
-            <TouchableOpacity style={styles.deliverBtn}><Text style={styles.btnText}>✔ Deliver</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.failBtn}><Text style={styles.btnText}>✖ Fail</Text></TouchableOpacity>
+          </TouchableOpacity>
+        ))}
+      {/* Modal for order details and proof upload */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Order Details</Text>
+            {selectedOrder && (
+              <>
+                <Text style={styles.modalLabel}>Order ID: <Text style={styles.modalValue}>{selectedOrder.id}</Text></Text>
+                <Text style={styles.modalLabel}>Status: <Text style={styles.modalValue}>{selectedOrder.status}</Text></Text>
+                <Text style={styles.modalLabel}>Address: <Text style={styles.modalValue}>{selectedOrder.address ? `${selectedOrder.address.line1}, ${selectedOrder.address.city}, ${selectedOrder.address.postcode}` : ''}</Text></Text>
+                <Text style={styles.modalLabel}>Created At: <Text style={styles.modalValue}>{selectedOrder.createdAt ? (typeof selectedOrder.createdAt === 'string' ? selectedOrder.createdAt : selectedOrder.createdAt.toDate?.().toString()) : ''}</Text></Text>
+                <Text style={[styles.modalLabel, { marginTop: 8 }]}>Items:</Text>
+                {Array.isArray(selectedOrder.cart) && selectedOrder.cart.length > 0 ? (
+                  selectedOrder.cart.map((item, idx) => (
+                    <Text key={item.id || idx} style={styles.modalItem}>- {item.name} (Qty: {item.quantity}, Price: {item.price})</Text>
+                  ))
+                ) : (
+                  <Text style={styles.modalItem}>No items in cart</Text>
+                )}
+                <Text style={styles.modalLabel}>Total Cost: <Text style={styles.modalValue}>{selectedOrder.totalCost}</Text></Text>
+                <Text style={styles.modalLabel}>Delivery Cost: <Text style={styles.modalValue}>{selectedOrder.deliveryCost}</Text></Text>
+                <Text style={styles.modalLabel}>Priority: <Text style={styles.modalValue}>{selectedOrder.priority ? 'Yes' : 'No'}</Text></Text>
+                <Text style={styles.modalLabel}>Priority Cost: <Text style={styles.modalValue}>{selectedOrder.priorityCost}</Text></Text>
+                {/* Proof document upload */}
+                <View style={styles.proofSection}>
+                  <Text style={styles.modalLabel}>Proof Document:</Text>
+                  {proofDoc ? (
+                    <Text style={{ color: 'green', marginBottom: 4 }}>Selected: {proofDoc.name || proofDoc.uri}</Text>
+                  ) : (
+                    <Text style={{ color: '#888', marginBottom: 4 }}>No document selected</Text>
+                  )}
+                  <Button title="Upload Proof" onPress={handlePickProof} />
+                </View>
+              </>
+            )}
+            <Pressable style={styles.modalCloseBtn} onPress={() => { setModalVisible(false); setProofDoc(null); }}>
+              <Text style={styles.modalCloseText}>Close</Text>
+            </Pressable>
           </View>
         </View>
+      </Modal>
       </View>
     </ScrollView>
   );
@@ -71,6 +167,62 @@ const StatCard = ({ label, value, icon }) => (
 );
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '92%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontWeight: 'bold',
+    fontSize: 20,
+    marginBottom: 10,
+    color: '#a020f0',
+    textAlign: 'center',
+  },
+  modalLabel: {
+    fontWeight: 'bold',
+    fontSize: 15,
+    marginTop: 2,
+    color: '#333',
+  },
+  modalValue: {
+    fontWeight: 'normal',
+    color: '#444',
+  },
+  modalItem: {
+    marginLeft: 16,
+    fontSize: 14,
+    color: '#555',
+  },
+  proofSection: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  modalCloseBtn: {
+    marginTop: 18,
+    alignSelf: 'flex-end',
+    paddingVertical: 6,
+    paddingHorizontal: 18,
+    backgroundColor: '#a020f0',
+    borderRadius: 8,
+  },
+  modalCloseText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   container: { flex: 1, backgroundColor: '#f7f9fb', padding: 16 },
   header: { fontSize: 26, fontWeight: 'bold', marginTop: 10 },
   subHeader: { fontSize: 15, color: '#555', marginBottom: 4 },

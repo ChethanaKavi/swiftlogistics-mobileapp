@@ -6,7 +6,7 @@ export default function RegistrationForm({ onSignIn }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [accountType, setAccountType] = useState('Client');
+  const [accountType] = useState('driver');
   const [agree, setAgree] = useState(false);
 
   // Backend connection: handle registration
@@ -20,11 +20,17 @@ export default function RegistrationForm({ onSignIn }) {
           fullName,
           email,
           password,
+          accountType: 'driver', // Always register as driver
         }),
       });
       const data = await response.json();
       if (response.ok) {
+        // Registration successful, go to driver details page
+        // You can replace this with navigation logic as per your app (e.g., using React Navigation)
         alert('Registration successful!');
+        // // Example: navigate('DriverDetails', { user: data.user });
+        // // For now, just show the details in an alert
+        // alert(`Driver Registered:\nName: ${fullName}\nEmail: ${email}\nAccount Type: driver`);
         if (onSignIn) onSignIn();
       } else {
         alert(data.message || 'Registration failed.');
@@ -41,7 +47,18 @@ export default function RegistrationForm({ onSignIn }) {
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Get started for track your order</Text>
 
-          {/* Full Name */}
+          {/* Account Type Selection */}
+          <View style={styles.inputBox}>
+            <Text style={styles.inputLabel}>Account Type</Text>
+            <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+              <TouchableOpacity
+                style={[styles.accountTypeBtn, true && styles.accountTypeBtnActive]} // Always active as driver
+                onPress={() => {}}
+              >
+                <Text style={[styles.accountTypeBtnText, true && styles.accountTypeBtnTextActive]}>Driver</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
           <View style={styles.inputBox}>
             <Text style={styles.inputLabel}>Full Name</Text>
             <View style={styles.inputRow}>
@@ -118,6 +135,28 @@ export default function RegistrationForm({ onSignIn }) {
 
 
 const styles = StyleSheet.create({
+  accountTypeBtn: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 6,
+    paddingVertical: 10,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  accountTypeBtnActive: {
+    backgroundColor: '#a020f0',
+    borderColor: '#a020f0',
+  },
+  accountTypeBtnText: {
+    color: '#888',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  accountTypeBtnTextActive: {
+    color: '#fff',
+  },
   centered: {
     flexGrow: 1,
     justifyContent: 'center',

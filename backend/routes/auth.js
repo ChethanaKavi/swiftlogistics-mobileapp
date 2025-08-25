@@ -6,8 +6,8 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 
 // Register
 router.post('/register', async (req, res) => {
-  const { fullName, email, password } = req.body;
-  if (!fullName || !email || !password) {
+  const { fullName, email, password, accountType } = req.body;
+  if (!fullName || !email || !password || !accountType) {
     return res.status(400).json({ message: 'All fields are required' });
   }
   try {
@@ -21,6 +21,8 @@ router.post('/register', async (req, res) => {
     await db.collection('users').doc(userRecord.uid).set({
       fullName,
       email,
+      accountType,
+      uid: userRecord.uid,
       createdAt: new Date(),
     });
     res.json({ message: 'Registration successful' });

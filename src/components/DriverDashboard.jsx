@@ -14,15 +14,96 @@ const DriverDashboard = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [proofDoc, setProofDoc] = useState(null);
+
   // Handle proof document upload
   const handlePickProof = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+      const allowedTypes = [
+        'image/png',
+        'image/jpg',
+        'image/jpeg',
+        'application/pdf',
+      ];
+      const result = await DocumentPicker.getDocumentAsync({
+        type: allowedTypes,
+        copyToCacheDirectory: true,
+      });
+      console.log('DocumentPicker result:', result);
+      let file = null;
       if (result.type === 'success') {
-        setProofDoc(result);
+        file = result;
+      } else if (result.assets && result.assets.length > 0) {
+        file = result.assets[0];
+      }
+      if (file) {
+        const ext = file.name?.split('.').pop()?.toLowerCase();
+        if (!['png', 'jpg', 'jpeg', 'pdf'].includes(ext)) {
+          alert('Only PNG, JPG, JPEG, or PDF files are allowed.');
+          return;
+        }
+        setProofDoc(file);
+      } else {
+        setProofDoc(null);
       }
     } catch (e) {
-      // handle error
+      console.log('DocumentPicker error:', e);
+      setProofDoc(null);
+    }
+  };
+
+  // Simulate driver info (replace with real auth/user info in production)
+  const driverId = 'driver123';
+  const driverName = 'John Doe';
+
+  // Handle Deliver action: upload proof and update order
+  const handleDeliver = async () => {
+    if (!selectedOrder) return;
+    if (!proofDoc) {
+      alert('Please select a proof document first.');
+      return;
+    }
+    try {
+      const formData = new FormData();
+      formData.append('driverId', driverId);
+      formData.append('driverName', driverName);
+      // For React Native/Expo DocumentPicker
+      let fileType = proofDoc.mimeType || proofDoc.type || 'application/octet-stream';
+      // iOS sometimes returns undefined for mimeType, try to infer from extension
+      if (!fileType && proofDoc.name) {
+        const ext = proofDoc.name.split('.').pop().toLowerCase();
+        if (ext === 'png') fileType = 'image/png';
+        else if (ext === 'jpg' || ext === 'jpeg') fileType = 'image/jpeg';
+        else if (ext === 'pdf') fileType = 'application/pdf';
+      }
+      formData.append('proof', {
+        uri: proofDoc.uri,
+        name: proofDoc.name || 'proof.jpg',
+        type: fileType,
+      });
+      const res = await fetch(`http://10.22.160.39:3001/api/orders/${selectedOrder.id}/proof`, {
+        method: 'POST',
+        headers: {
+          // 'Content-Type': 'multipart/form-data',
+          // Let fetch set the correct boundary for multipart
+        },
+        body: formData,
+      });
+      let data;
+      try {
+        data = await res.json();
+      } catch (err) {
+        data = { message: 'Invalid server response' };
+      }
+      if (res.ok) {
+        alert('Order delivered!');
+        setModalVisible(false);
+        setProofDoc(null);
+        fetchOrders();
+      } else {
+        alert(data.message || 'Failed to deliver order.');
+      }
+    } catch (e) {
+      alert('Error uploading proof: ' + e.message);
     }
   };
 
@@ -82,7 +163,7 @@ const DriverDashboard = () => {
         </View>
         <Text style={styles.pendingTitle}>Pending Deliveries</Text>
         {orders.filter(o => o.status === 'PENDING').map(order => (
-          <TouchableOpacity key={order.id} onPress={() => { setSelectedOrder(order); setModalVisible(true); }}>
+          <TouchableOpacity key={order.id} onPress={() => { setSelectedOrder(order); setProofDoc(null); setModalVisible(true); }}>
             <View style={styles.deliveryCard}>
               <Text style={styles.packageId}>Order ID: {order.id}</Text>
               <Text style={styles.packageAddress}>{order.address ? `${order.address.line1}, ${order.address.city}` : ''}</Text>
@@ -143,7 +224,10 @@ const DriverDashboard = () => {
                   ) : (
                     <Text style={{ color: '#888', marginBottom: 4 }}>No document selected</Text>
                   )}
-                  <Button title="Upload Proof" onPress={handlePickProof} />
+                  <Button title="Pick Proof Document" onPress={handlePickProof} />
+                </View>
+                <View style={{ marginTop: 10 }}>
+                  <Button title="Deliver" color="#2ecc40" onPress={handleDeliver} />
                 </View>
               </>
             )}

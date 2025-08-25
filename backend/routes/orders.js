@@ -1,7 +1,10 @@
 // backend/routes/orders.js
 const express = require('express');
 const router = express.Router();
-const { db } = require('../firebaseAdmin');
+const { db, bucket } = require('../firebaseAdmin');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
+const admin = require('firebase-admin');
 
 // Get all orders
 router.get('/', async (req, res) => {
@@ -26,3 +29,49 @@ router.get('/:id', async (req, res) => {
 });
 
 module.exports = router;
+
+// Upload proof document and update order
+router.post('/:id/proof', upload.single('proof'), async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const { driverId, driverName } = req.body;
+    console.log('Received proof upload:', {
+      file: req.file,
+      body: req.body,
+      orderId,
+    });
+    if (!req.file) {
+      console.error('No file uploaded');
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+    if (!driverId || !driverName) {
+      console.error('Driver info missing', req.body);
+      return res.status(400).json({ message: 'Driver info required' });
+    }
+
+    // Upload file to Firebase Storage
+    const fileName = `proofs/${orderId}_${Date.now()}_${req.file.originalname}`;
+    const file = bucket.file(fileName);
+    await file.save(req.file.buffer, {
+      metadata: { contentType: req.file.mimetype },
+    });
+    // Get public URL
+    await file.makePublic();
+    const proofUrl = file.publicUrl();
+
+    // Update order in Firestore
+    const deliveredAt = admin.firestore.Timestamp.now();
+    await db.collection('orders').doc(orderId).update({
+      status: 'delivered',
+      driverId,
+      driverName,
+      deliveredAt,
+      proofUrl,
+    });
+    console.log('Order updated:', orderId, { driverId, driverName, deliveredAt, proofUrl });
+    res.json({ message: 'Proof uploaded and order updated', proofUrl });
+  } catch (error) {
+    console.error('Error in proof upload:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
